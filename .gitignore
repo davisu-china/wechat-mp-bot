@@ -1,0 +1,8 @@
+# 凭证与运行时数据，绝不入库
+config.json
+state.db
+state.db-journal
+workspace/
+*.log
+__pycache__/
+*.pyc

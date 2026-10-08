@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wechat-mp-bot 产品技术方案</title>
+<style>
+  :root{
+    --paper:#F3F4F7; --surface:#FFFFFF; --surface-2:#EBEDF2;
+    --ink:#131722; --ink-2:#333A4A; --muted:#5C6577;
+    --line:#D7DAE3; --line-soft:#E5E7EE;
+    --accent:#2C4A8C; --accent-2:#1E3568; --accent-soft:#E2E8F5;
+    --seal:#9C3A28; --seal-soft:#F4E4E0;
+    --amber:#8A6412; --amber-soft:#F6EDDA;
+    --teal:#0F6157; --teal-soft:#DEEDEA;
+    --on-accent:#FFFFFF;
+    --mono:"JetBrains Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+    --serif:"Songti SC","Source Han Serif SC","Noto Serif SC",Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.78;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 32px 96px}
+
+  .masthead{padding:72px 0 36px;border-bottom:2px solid var(--ink);margin-bottom:40px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 18px}
+  h1{font-family:var(--serif);font-weight:700;font-size:44px;line-height:1.14;letter-spacing:.01em;margin:0 0 14px}
+  .subtitle{font-size:17px;color:var(--ink-2);margin:0 0 28px;max-width:66ch}
+  .metagrid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+  .metagrid div{background:var(--surface);padding:12px 14px}
+  .metagrid .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
+  .metagrid .v{font-size:13.5px;font-weight:600;color:var(--ink)}
+
+  .toc{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);padding:22px 26px;margin-bottom:56px}
+  .toc h2{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 14px;font-weight:500}
+  .toc ol{margin:0;padding:0;list-style:none;columns:2;column-gap:36px}
+  .toc li{font-size:13.5px;padding:3px 0;break-inside:avoid;color:var(--ink-2)}
+  .toc li b{font-family:var(--mono);color:var(--accent);font-weight:600;margin-right:8px;font-size:12px}
+
+  section{margin-bottom:56px;scroll-margin-top:24px}
+  h2.sec{font-family:var(--serif);font-size:27px;font-weight:700;margin:0 0 20px;padding-bottom:12px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px}
+  h2.sec .num{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:500;letter-spacing:.06em}
+  h3{font-size:17.5px;font-weight:700;margin:34px 0 12px;color:var(--ink)}
+  h4{font-size:14.5px;font-weight:700;margin:22px 0 8px;color:var(--accent-2);font-family:var(--mono);letter-spacing:.02em}
+  p{margin:0 0 13px}
+  ul,ol{margin:0 0 14px;padding-left:22px}
+  li{margin:5px 0}
+  strong{font-weight:700}
+  code{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);padding:1.5px 5px;border-radius:3px;color:var(--accent-2);border:1px solid var(--line-soft)}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0 20px;font-size:13.5px;background:var(--surface);border:1px solid var(--line)}
+  th{background:var(--surface-2);text-align:left;font-weight:700;font-size:12px;letter-spacing:.04em;color:var(--ink-2);padding:9px 12px;border-bottom:1px solid var(--line);text-transform:uppercase}
+  td{padding:9px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td code{font-size:12px;white-space:nowrap}
+
+  .badge{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;padding:1.5px 7px;border-radius:3px;vertical-align:1.5px;white-space:nowrap}
+  .b-mvp{background:var(--accent);color:#fff}
+  .b-p1{background:var(--teal-soft);color:var(--teal);border:1px solid #C3DED9}
+  .b-p2{background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+  .b-tbd{background:var(--amber-soft);color:var(--amber);border:1px solid #E7D6B4}
+  .b-block{background:var(--seal);color:#fff}
+
+  .callout{border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--surface);padding:16px 20px;margin:18px 0}
+  .callout.warn{border-left-color:var(--seal);background:var(--seal-soft)}
+  .callout.ok{border-left-color:var(--teal);background:var(--teal-soft)}
+  .callout.tbd{border-left-color:var(--amber);background:var(--amber-soft)}
+  .callout .ct{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:8px;color:var(--accent)}
+  .callout.warn .ct{color:var(--seal)}
+  .callout.ok .ct{color:var(--teal)}
+  .callout.tbd .ct{color:var(--amber)}
+  .callout p:last-child{margin-bottom:0}
+
+  pre{background:#161B26;color:#DCE2EE;font-family:var(--mono);font-size:12.5px;line-height:1.7;padding:18px 20px;overflow-x:auto;margin:14px 0;border-radius:4px;border:1px solid #0B0F16}
+  pre .cm{color:#76839B}
+  pre .kw{color:#7FB8E8}
+  pre .st{color:#E0B87F}
+  pre .fn{color:#8FD8C8}
+  .caption{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:-6px 0 18px}
+
+  .flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:16px 0 20px;padding:20px;background:var(--surface);border:1px solid var(--line);font-size:12.5px}
+  .fn{background:var(--accent-soft);border:1.5px solid var(--accent);color:var(--accent-2);padding:7px 11px;border-radius:4px;text-align:center;font-weight:600;line-height:1.35}
+  .fn small{display:block;font-weight:400;color:var(--muted);font-size:10.5px;font-family:var(--mono)}
+  .fn.plain{background:var(--surface-2);border-color:var(--line);color:var(--ink-2)}
+  .fn.gw{background:var(--amber-soft);border-color:#D9BE86;color:var(--amber)}
+  .fn.ok{background:var(--teal-soft);border-color:var(--teal);color:var(--teal)}
+  .fa{color:var(--muted);font-family:var(--mono);font-size:13px}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+  .card{background:var(--surface);border:1px solid var(--line);padding:16px 18px}
+  .card h5{margin:0 0 8px;font-size:13.5px;font-weight:700;color:var(--accent-2)}
+  .card p{font-size:13px;color:var(--ink-2);margin:0}
+  .card ul{padding-left:18px;margin:6px 0 0;font-size:13px;color:var(--ink-2)}
+
+  .kv{font-size:13.5px}
+  .kv dt{font-weight:700;color:var(--accent-2);margin-top:12px;font-family:var(--mono);font-size:12.5px}
+  .kv dd{margin:2px 0 0 0;color:var(--ink-2)}
+
+  .timeline{margin:16px 0 20px;border-left:2px solid var(--line);padding-left:0}
+  .tl-item{position:relative;padding:0 0 18px 26px}
+  .tl-item::before{content:"";position:absolute;left:-7px;top:8px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2.5px solid var(--accent)}
+  .tl-time{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.04em}
+  .tl-body{font-size:13.5px;color:var(--ink-2)}
+
+  hr.soft{border:none;border-top:1px solid var(--line-soft);margin:32px 0}
+  .foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="masthead">
+  <p class="eyebrow">Product &amp; Technical Design · v1.0</p>
+  <h1>wechat-mp-bot</h1>
+  <p class="subtitle">每日自动生成微信公众号推文，审核通过后定时发布。选题 → 生成 → 排版 → 审核 → 发布的全自动流水线，商品级「人在环」设计，权限受限时自动降级为草稿模式。</p>
+  <div class="metagrid">
+    <div><span class="k">文档状态</span><span class="v">草案</span></div>
+    <div><span class="k">日期</span><span class="v">2026-10-08</span></div>
+    <div><span class="k">运行环境</span><span class="v">Python 3.6.8 · 零依赖</span></div>
+    <div><span class="k">仓库</span><span class="v">davisu-china/wechat-mp-bot</span></div>
+  </div>
+</div>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><b>01</b>背景与目标</li>
+    <li><b>02</b>硬约束（方案的前提）</li>
+    <li><b>03</b>产品方案</li>
+    <li><b>04</b>系统架构</li>
+    <li><b>05</b>核心模块设计</li>
+    <li><b>06</b>微信集成层设计</li>
+    <li><b>07</b>数据模型</li>
+    <li><b>08</b>部署与运行</li>
+    <li><b>09</b>配置说明</li>
+    <li><b>10</b>安全与合规</li>
+    <li><b>11</b>里程碑与排期</li>
+    <li><b>12</b>风险与开放问题</li>
+  </ol>
+</nav>
+
+<!-- 01 -->
+<section>
+  <h2 class="sec"><span class="num">01</span>背景与目标</h2>
+  <p>运营一个微信公众号的日常成本主要在两块：<b>写</b>（每天要有内容产出）和<b>发</b>（到点要记得发）。这两件事都是重复劳动，且高度依赖人的记性。</p>
+  <p>本项目要把这条链路自动化：每天定时跑一次，自动完成选题、成稿、排版、配图，推给运营者确认，确认后自动发布。</p>
+
+  <h3>1.1 目标</h3>
+  <ul>
+    <li><b>G1 每日自动出稿</b>：无需人工介入即可产出可发布的成稿，运营者每天的工作从「写」降为「审」。</li>
+    <li><b>G2 定时发布</b>：支持指定时间自动发布，也可人工确认后立即发。</li>
+    <li><b>G3 公众号格式原生适配</b>：产出的排版在公众号编辑器里直接可用，不需要人工二次调格式。</li>
+    <li><b>G4 权限降级不降级体验</b>：账号权限不足时自动降级为「存草稿 + 人工点发表」，功能不中断。</li>
+  </ul>
+
+  <h3>1.2 非目标</h3>
+  <ul>
+    <li>不做多账号矩阵管理（先单号跑通）。</li>
+    <li>不做粉丝运营（自动回复、用户画像、菜单管理）。</li>
+    <li>不做内容爬虫农场（选题来源以配置化栏目为主，不做大规模抓取）。</li>
+    <li>不做全自动无人审核发布（见第 10 章合规说明）。</li>
+  </ul>
+</section>
+
+<!-- 02 -->
+<section>
+  <h2 class="sec"><span class="num">02</span>硬约束（方案的前提）</h2>
+  <p>这一章是整个方案的地基。<b>下面每一条都直接决定了架构长什么样</b>，不是背景介绍，请先读完再往下看设计。</p>
+
+  <h3>2.1 微信平台规则约束</h3>
+  <div class="callout warn">
+    <div class="ct">最关键的一条：发布接口的权限门槛</div>
+    <p>微信自 2025 年 7 月起收紧了发布接口权限——<b>个人主体账号、未认证的企业账号会被回收 <code>freepublish/*</code>（发布）与 <code>mass/*</code>（群发）接口的调用权限</b>，调用会返回 <code>48001</code>（无该接口权限）。草稿接口（<code>draft/*</code>）通常仍然可用。</p>
+    <p>这意味着：<b>如果本号未认证，程序能自动做到「生成 + 存草稿」，最后一步「发表」必须人工点。</b>本方案据此把发布器设计成可插拔的（见 6.6），权限到位后改一行配置即可全自动。</p>
+  </div>
+
+  <table>
+    <tr><th style="width:180px">约束</th><th>说明</th><th style="width:150px">对设计的影响</th></tr>
+    <tr>
+      <td><b>发布 vs 群发</b></td>
+      <td><b>群发</b>（<code>mass/sendall</code>）：粉丝收到推送通知，占用群发额度。<b>发布</b>（<code>freepublish/submit</code>）：不推送通知、不占群发额度、生成永久链接，内容挂在号上。</td>
+      <td>「每日发」必须走<b>发布</b>而非群发</td>
+    </tr>
+    <tr>
+      <td><b>群发次数上限</b></td>
+      <td>订阅号 <b>每天 1 次</b>；服务号 <b>每月 4 次</b>。</td>
+      <td>即使走群发，服务号也做不到每日</td>
+    </tr>
+    <tr>
+      <td><b>IP 白名单</b></td>
+      <td>调用 API 的服务器出口 IP 必须加入公众号后台白名单，否则报 <code>40164</code>。</td>
+      <td>需固定出口 IP，见 6.2</td>
+    </tr>
+    <tr>
+      <td><b>access_token</b></td>
+      <td>有效期 7200 秒；<b>同一账号多进程并发刷新会互相顶掉</b>，导致间歇性 <code>40001</code>。</td>
+      <td>必须中控缓存，见 6.1</td>
+    </tr>
+    <tr>
+      <td><b>正文图片外链</b></td>
+      <td>正文中直接引用外部图片 URL 会被微信屏蔽（防盗链），在公众号里不显示。</td>
+      <td>图片必须先上传素材，见 6.4</td>
+    </tr>
+    <tr>
+      <td><b>编辑器样式</b></td>
+      <td>公众号编辑器只认<b>内联样式</b>；<code>&lt;style&gt;</code> 标签与 <code>class</code> 基本无效。</td>
+      <td>排版层直接产出内联 style，见 5.3</td>
+    </tr>
+  </table>
+
+  <h3>2.2 运行环境约束</h3>
+  <table>
+    <tr><th style="width:180px">项目</th><th>实测结果</th><th style="width:150px">应对</th></tr>
+    <tr><td>Python 版本</td><td><b>仅 3.6.8</b>，无其它版本</td><td>不使用 3.7+ 语法（dataclass、海象运算符等）</td></tr>
+    <tr><td>第三方库</td><td><b>requests / Pillow / jinja2 均未安装</b></td><td><b>纯标准库实现</b>，零依赖</td></tr>
+    <tr><td>系统环境</td><td>CentOS 7 系（内核 3.10 / glibc 2.17）</td><td>不依赖新版 OpenSSL，不装重编译包</td></tr>
+    <tr><td>外网连通性</td><td>微信 API ✅、PyPI ✅、通用外网 ✅</td><td>可直接调用微信接口</td></tr>
+    <tr><td>出口公网 IP</td><td><b>111.228.14.136</b></td><td>填入微信后台 IP 白名单</td></tr>
+  </table>
+
+  <div class="callout ok">
+    <div class="ct">零依赖是个好约束，不是妥协</div>
+    <p>本项目要做的事（HTTP 调用、JSON 处理、字符串模板、定时、SQLite 状态）标准库全部覆盖：<code>urllib.request</code> 替代 requests、<code>json</code>、<code>sqlite3</code>、<code>html</code>、<code>hashlib</code>、<code>hmac</code>。好处是<b>换任何机器都能直接跑，没有装包这一步就没有装包失败</b>——考虑到本机 Python 3.6 的生态现状，这反而是最稳的选择。</p>
+  </div>
+</section>
+
+<!-- 03 -->
+<section>
+  <h2 class="sec"><span class="num">03</span>产品方案</h2>
+
+  <h3>3.1 每日工作流</h3>
+  <p>运营者每天只有两个动作：<b>早上点一下确认</b>，其余全自动。</p>
+  <div class="timeline">
+    <div class="tl-item"><div class="tl-time">07:00</div><div class="tl-body">定时任务触发，从配置的栏目里选题（或用前一日的选题池）</div></div>
+    <div class="tl-item"><div class="tl-time">07:00 – 07:05</div><div class="tl-body">调用大模型生成正文，生成/选取配图，上传图片到微信素材库</div></div>
+    <div class="tl-item"><div class="tl-time">07:05</div><div class="tl-body">排版：Markdown → 公众号内联样式 HTML，渲染出本地预览页</div></div>
+    <div class="tl-item"><div class="tl-time">07:06</div><div class="tl-body">推送<b>飞书审核卡片</b>给运营者：标题、摘要、预览链接、[批准发布] / [驳回] / [改写] 按钮</div></div>
+    <div class="tl-item"><div class="tl-time">08:00 前</div><div class="tl-body">运营者看卡片，点批准（或什么都不做，按配置走默认策略）</div></div>
+    <div class="tl-item"><div class="tl-time">08:00</div><div class="tl-body">发布：生成草稿并提交发布（权限不足则存草稿并通知运营者手动发表）</div></div>
+  </div>
+
+  <h3>3.2 功能范围</h3>
+  <table>
+    <tr><th style="width:60px">编号</th><th style="width:170px">模块</th><th>能力</th><th style="width:80px">优先级</th></tr>
+    <tr><td>F-1</td><td>选题</td><td>栏目化选题配置、选题池、去重（近期不重复）</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>F-2</td><td>内容生成</td><td>调用 LLM 出稿（标题/摘要/正文），支持自定义提示词模板与文风</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>F-3</td><td>排版渲染</td><td>Markdown → 公众号内联样式 HTML，多种主题模板</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>F-4</td><td>配图</td><td>封面图与正文图，上传至微信永久素材并替换为可用地址</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>F-5</td><td>审核</td><td>飞书卡片推送、批准/驳回/改写回执</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>F-6</td><td>发布</td><td>草稿 / 发布 / 群发 三种发布器，权限自动降级</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>F-7</td><td>定时调度</td><td>每日定时触发、失败重试、发布记录</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>F-8</td><td>本地预览</td><td>生成 HTML 预览页，模拟手机端效果</td><td><span class="badge b-p1">P1</span></td></tr>
+    <tr><td>F-9</td><td>改写重生成</td><td>驳回后带意见重新生成</td><td><span class="badge b-p1">P1</span></td></tr>
+    <tr><td>F-10</td><td>数据统计</td><td>发布记录、成功率、耗时统计</td><td><span class="badge b-p2">P2</span></td></tr>
+    <tr><td>F-11</td><td>多栏目/多账号</td><td>多公众号、多栏目并行</td><td><span class="badge b-p2">P2</span></td></tr>
+  </table>
+</section>
+
+<!-- 04 -->
+<section>
+  <h2 class="sec"><span class="num">04</span>系统架构</h2>
+
+  <h3>4.1 总体流程</h3>
+  <div class="flow">
+    <div class="fn plain">选题<small>topic</small></div><span class="fa">→</span>
+    <div class="fn">生成<small>generate</small></div><span class="fa">→</span>
+    <div class="fn">排版<small>render</small></div><span class="fa">→</span>
+    <div class="fn gw">审核<small>review · 飞书</small></div><span class="fa">→</span>
+    <div class="fn ok">发布<small>publish</small></div>
+  </div>
+  <p>旁路能力：<b>素材</b>（图片上传，被排版与发布依赖）、<b>状态库</b>（SQLite，全流程记录）、<b>调度</b>（定时触发入口）。</p>
+
+  <h3>4.2 分层</h3>
+  <table>
+    <tr><th style="width:130px">层</th><th style="width:220px">模块</th><th>职责</th></tr>
+    <tr><td>入口层</td><td><code>cli.py</code></td><td>命令行入口：<code>run</code>（跑全流程）/ <code>preview</code>（只出预览）/ <code>publish</code>（重发）</td></tr>
+    <tr><td>调度层</td><td><code>scheduler.py</code></td><td>每日定时；也可由外部 cron 直接触发</td></tr>
+    <tr><td>业务层</td><td><code>topic</code> / <code>generate</code> / <code>render</code> / <code>review</code></td><td>选题、生成、排版、审核四个业务步骤</td></tr>
+    <tr><td>适配层</td><td><code>wx/</code> · <code>llm/</code> · <code>feishu/</code></td><td>三个外部依赖的封装：微信、大模型、飞书</td></tr>
+    <tr><td>基础层</td><td><code>store.py</code> · <code>config.py</code> · <code>http.py</code></td><td>状态存储、配置加载、HTTP 客户端（urllib 封装）</td></tr>
+  </table>
+
+  <div class="callout">
+    <div class="ct">设计原则：外部依赖全部走适配层</div>
+    <p>微信、大模型、飞书三者都可能换（换模型厂商、换通知渠道、微信接口变更），所以三者都只通过一个薄接口暴露给业务层。<b>业务层不出现任何一处具体的 HTTP 调用</b>——这是这个项目后期能不能改得动、能不能测的分水岭。</p>
+  </div>
+
+  <h3>4.3 目录结构</h3>
+  <pre>wechat-mp-bot/
+├── run.py                    <span class="cm"># 入口，兼容 Python 3.6</span>
+├── config.example.json       <span class="cm"># 配置模板（真实配置不入库）</span>
+├── wmpb/
+│   ├── config.py             <span class="cm"># 配置加载 + 校验</span>
+│   ├── http.py               <span class="cm"># urllib 封装：超时/重试/JSON</span>
+│   ├── store.py              <span class="cm"># SQLite 状态库</span>
+│   ├── topic.py              <span class="cm"># 选题</span>
+│   ├── generate.py           <span class="cm"># 生成</span>
+│   ├── render.py             <span class="cm"># 排版：md → 内联样式 HTML</span>
+│   ├── review.py             <span class="cm"># 飞书审核卡片</span>
+│   ├── scheduler.py          <span class="cm"># 定时</span>
+│   ├── wx/
+│   │   ├── token.py          <span class="cm"># access_token 中控</span>
+│   │   ├── material.py       <span class="cm"># 素材上传</span>
+│   │   ├── draft.py          <span class="cm"># 草稿箱</span>
+│   │   └── publisher.py      <span class="cm"># 发布器（可插拔）</span>
+│   ├── llm/
+│   │   └── client.py         <span class="cm"># 大模型客户端</span>
+│   ├── feishu/
+│   │   └── card.py           <span class="cm"># 卡片推送</span>
+│   └── templates/
+│       ├── theme_default.py  <span class="cm"># 排版主题</span>
+│       └── prompts.py        <span class="cm"># 提示词模板</span>
+└── workspace/                <span class="cm"># 运行时产物：预览页、图片、日志</span></pre>
+</section>
+
+<!-- 05 -->
+<section>
+  <h2 class="sec"><span class="num">05</span>核心模块设计</h2>
+
+  <h3>5.1 选题模块</h3>
+  <p>选题是内容质量的上限。MVP 阶段采用<b>配置化栏目 + 选题池</b>，不做大规模抓取：</p>
+  <ul>
+    <li>配置里定义若干<b>栏目</b>（如「行业观察」「工具推荐」「每周复盘」），每个栏目带提示词倾向与配图风格。</li>
+    <li>每日按配置的轮换策略选栏目（轮询 / 权重），再从栏目下的<b>选题池</b>取一条。</li>
+    <li>选题池支持人工补充（运营者往 JSON 里加），也支持程序按提示词让模型先生成候选再选。</li>
+    <li><b>去重</b>：近 N 天已用过的选题标记为已用，避免重复。</li>
+  </ul>
+
+  <h3>5.2 生成模块</h3>
+  <ul>
+    <li>输入：选题 + 栏目提示词 + 文风约束 → 输出结构化结果 <code>{title, digest, body_markdown, cover_prompt}</code>。</li>
+    <li><b>要求模型输出 JSON</b>而非自由文本，便于程序解析；解析失败时降级为「整段当正文 + 首行当标题」。</li>
+    <li>模型来源可切换：<b>Claude API</b>（推荐，写作质量最好）或<b>自建 vLLM 服务</b>（成本低、数据不出内网）。注意：自建的 dh 系列是聊天场景微调的，写推文效果不佳，需另训或不用。</li>
+    <li>生成结果落库，保留原始响应以便排查。</li>
+  </ul>
+
+  <h3>5.3 排版模块（关键）</h3>
+  <div class="callout warn">
+    <div class="ct">这里的坑：公众号不吃外部 CSS</div>
+    <p>公众号编辑器会剥掉 <code>&lt;style&gt;</code> 标签和 <code>class</code> 属性。<b>所有样式必须内联写在每个标签的 <code>style=""</code> 里</b>。所以不能直接用通用的 Markdown→HTML 库，必须自己控制输出。</p>
+  </div>
+  <ul>
+    <li>输入 Markdown（受限子集：标题、段落、加粗、引用、列表、代码块、图片），输出<b>全内联样式</b>的 HTML 片段。</li>
+    <li>只支持公众号认得的标签：<code>section</code> / <code>p</code> / <code>span</code> / <code>strong</code> / <code>h</code> / <code>img</code> / <code>blockquote</code> / <code>ul</code>。</li>
+    <li><b>主题模板</b>：一套配色与间距常量（字号、行高、主色、引用块样式），换主题只改常量。</li>
+    <li>产出两份：一份给微信的 <code>content</code> 字段，一份包上手机外框的本地预览页（供审核时看效果）。</li>
+  </ul>
+  <pre><span class="cm"># 排版输出示意：每一处样式都内联</span>
+&lt;section style=<span class="st">"font-size:16px;line-height:1.75;color:#333;"</span>&gt;
+  &lt;p style=<span class="st">"margin:0 0 16px;text-align:justify;"</span>&gt;正文段落…&lt;/p&gt;
+  &lt;blockquote style=<span class="st">"margin:16px 0;padding:12px 16px;border-left:3px solid #2C4A8C;background:#F3F4F7;color:#555;"</span>&gt;
+    引用内容
+  &lt;/blockquote&gt;
+&lt;/section&gt;</pre>
+
+  <h3>5.4 素材模块</h3>
+  <ul>
+    <li>封面图：MVP 用<b>模板图</b>（本地生成一张带标题文字的图）或从图库选，通过 <code>material/add_material</code> 上传为<b>永久素材</b>，拿到 <code>media_id</code>。</li>
+    <li>正文图：通过 <code>media/uploadimg</code> 上传，返回 <code>mmbiz.qpic.cn</code> 地址，<b>用它替换正文里的原始图片地址</b>。</li>
+    <li>本机禁用无头浏览器（glibc 2.17，Chromium 跑不起来），所以<b>不做 HTML 截图生成封面</b>；封面走「模板图 + 文字叠加」或外部图片生成 API。</li>
+    <li>上传结果与 <code>media_id</code> 缓存进状态库，避免重复上传（素材有数量上限）。</li>
+  </ul>
+
+  <h3>5.5 审核模块</h3>
+  <ul>
+    <li>生成完成后推一张<b>飞书交互卡片</b>：标题、摘要、预览链接、三个按钮（批准发布 / 驳回 / 改写）。</li>
+    <li>批准 → 触发发布；驳回 → 记录原因，当日不发；改写 → 带意见重新生成一版再推卡片。</li>
+    <li>超时未响应按配置处理：<b>默认不自动发布</b>（内容风险不可逆），仅提醒。</li>
+    <li>复用本机已有的飞书能力，不重复造。</li>
+  </ul>
+
+  <h3>5.6 发布模块（可插拔）</h3>
+  <p>定义统一的发布器接口，三种实现，按账号权限自动选择：</p>
+  <table>
+    <tr><th style="width:170px">发布器</th><th style="width:150px">调用接口</th><th>行为</th><th style="width:110px">前提</th></tr>
+    <tr><td><code>FreePublisher</code></td><td><code>freepublish/submit</code></td><td>提交发布，生成永久链接，不推送粉丝</td><td>已认证账号</td></tr>
+    <tr><td><code>MassPublisher</code></td><td><code>mass/sendall</code></td><td>群发，粉丝收到推送（受次数限制）</td><td>已认证 + 有额度</td></tr>
+    <tr><td><code>DraftPublisher</code></td><td><code>draft/add</code></td><td><b>只存草稿</b>，通知运营者到后台手动发表</td><td><b>无门槛（兜底）</b></td></tr>
+  </table>
+  <pre><span class="cm"># 发布器接口（示意）</span>
+<span class="kw">class</span> <span class="fn">Publisher</span>(object):
+    <span class="kw">def</span> <span class="fn">publish</span>(self, article):
+        <span class="st">"""提交内容，返回 PublishResult(status, media_id/url, message)"""</span>
+        <span class="kw">raise</span> NotImplementedError
+
+<span class="cm"># 选择逻辑：探测权限 → 选发布器 → 失败自动降级</span>
+publisher = FreePublisher(wx) <span class="kw">if</span> has_perm(<span class="st">"freepublish"</span>) <span class="kw">else</span> DraftPublisher(wx)
+result = publisher.publish(article)
+<span class="kw">if</span> result.errcode == <span class="st">48001</span>:          <span class="cm"># 权限不足，降级重试</span>
+    result = DraftPublisher(wx).publish(article)</pre>
+  <p class="caption">图 5-1 发布器抽象。权限探测失败或调用返回 48001 时自动降级为草稿，功能不中断。</p>
+</section>
+
+<!-- 06 -->
+<section>
+  <h2 class="sec"><span class="num">06</span>微信集成层设计</h2>
+
+  <h3>6.1 access_token 中控</h3>
+  <div class="callout warn">
+    <div class="ct">最容易踩的坑：token 互相顶掉</div>
+    <p>同一账号的 access_token 是<b>全局唯一</b>的——新获取的会让旧的立即失效。如果有两个进程（或两个定时任务重叠）同时去刷新，就会互相顶掉，表现为<b>间歇性 <code>40001</code> 报错，且极难复现和排查</b>。</p>
+  </div>
+  <ul>
+    <li>token 统一由 <code>wx/token.py</code> 管理，<b>所有需要 token 的调用都必须从这里取</b>，不允许各模块自己拉。</li>
+    <li>缓存落地为文件（<code>workspace/token.json</code>），带 <b>过期时间 + 提前刷新窗口</b>（到期前 5 分钟才刷新）。</li>
+    <li>刷新加<b>文件锁</b>，保证同一时刻只有一个进程真正发起刷新请求，其余进程等待复用结果。</li>
+    <li>刷新失败时使用旧 token 重试一次再报错，避免瞬时网络抖动导致整批任务失败。</li>
+  </ul>
+
+  <h3>6.2 IP 白名单</h3>
+  <ul>
+    <li>本机出口 IP 实测为 <b><code>111.228.14.136</code></b>，需加入公众号后台「设置与开发 → 基本配置 → IP 白名单」。</li>
+    <li><b>风险</b>：该 IP 是动态分配的话会漂移，届时所有 API 调用报 <code>40164</code>。程序启动时做一次<b>白名单自检</b>（调一个轻量接口如 <code>get_api_domain_ip</code> 或 token 接口），失败即告警，而不是等到发布时才发现。</li>
+    <li>若 IP 不稳定，方案是把调用收敛到一个固定出口的机器上当网关（见 12 章开放问题）。</li>
+  </ul>
+
+  <h3>6.3 错误码处理</h3>
+  <table>
+    <tr><th style="width:110px">错误码</th><th style="width:200px">含义</th><th>处理策略</th></tr>
+    <tr><td><code>40001</code></td><td>凭证无效</td><td>强制刷新 token 后重试一次；仍失败则告警</td></tr>
+    <tr><td><code>40164</code></td><td>IP 不在白名单</td><td>立即告警（改配置才能修），当日任务转草稿模式或停止</td></tr>
+    <tr><td><code>48001</code></td><td>无该接口权限</td><td><b>触发发布器降级</b>（Free→Draft），并记录账号权限画像</td></tr>
+    <tr><td><code>45009</code></td><td>接口调用额度超限</td><td>退避重试，跨日重置</td></tr>
+    <tr><td><code>45011</code></td><td>频率过高</td><td>指数退避重试</td></tr>
+    <tr><td><code>-1</code></td><td>系统繁忙</td><td>重试 3 次，退避 2s/4s/8s</td></tr>
+  </table>
+
+  <h3>6.4 HTTP 客户端</h3>
+  <ul>
+    <li>基于 <code>urllib.request</code> 封装，统一处理：超时（默认 10s）、重试、JSON 解析、错误码提取。</li>
+    <li><b>上传素材是 multipart/form-data</b>，<code>urllib</code> 不直接支持，需手写 multipart body——这是本项目唯一需要点技巧的地方，独立成函数并配单元测试。</li>
+    <li>所有请求记录耗时与结果到日志，便于排查。</li>
+  </ul>
+</section>
+
+<!-- 07 -->
+<section>
+  <h2 class="sec"><span class="num">07</span>数据模型</h2>
+  <p>用 SQLite（标准库自带），单文件，够用且无运维成本。</p>
+  <table>
+    <tr><th style="width:200px">表</th><th>字段</th><th>用途</th></tr>
+    <tr><td><code>topics</code></td><td>id, category, title, hint, status, used_at</td><td>选题池与去重</td></tr>
+    <tr><td><code>articles</code></td><td>id, date, category, topic_id, title, digest, body_md, body_html, status, created_at</td><td>每篇稿件的全生命周期</td></tr>
+    <tr><td><code>assets</code></td><td>id, article_id, type, local_path, media_id, wx_url, uploaded_at</td><td>素材上传记录，避免重复上传</td></tr>
+    <tr><td><code>reviews</code></td><td>id, article_id, action, comment, actor, created_at</td><td>审核回执</td></tr>
+    <tr><td><code>publishes</code></td><td>id, article_id, publisher, media_id, url, status, errcode, message, created_at</td><td>发布记录与失败原因</td></tr>
+    <tr><td><code>llm_calls</code></td><td>id, article_id, model, prompt_hash, response, tokens, cost, created_at</td><td>生成调用留痕与成本统计</td></tr>
+  </table>
+  <p><code>articles.status</code> 状态机：<code>draft → generated → reviewed → published / rejected / failed</code>。</p>
+</section>
+
+<!-- 08 -->
+<section>
+  <h2 class="sec"><span class="num">08</span>部署与运行</h2>
+  <h3>8.1 运行方式</h3>
+  <pre><span class="cm"># 手动跑一次全流程</span>
+python3.6 run.py run
+
+<span class="cm"># 只生成 + 出本地预览，不推审核、不发布</span>
+python3.6 run.py preview
+
+<span class="cm"># 对已生成的稿子重新提交发布</span>
+python3.6 run.py publish --article-id 42
+
+<span class="cm"># 常驻模式：内部调度，每天 07:00 触发</span>
+python3.6 run.py daemon</pre>
+
+  <h3>8.2 调度</h3>
+  <ul>
+    <li>推荐<b>外部 cron 触发</b>（更可靠、日志更好管）：<code>0 7 * * * cd /path &amp;&amp; python3.6 run.py run</code>。</li>
+    <li>本机的 metabot 调度也能承担这一步，无需额外装 crontab。</li>
+    <li><code>daemon</code> 模式仅作为备选，内部 sleep 循环对时钟漂移不友好。</li>
+  </ul>
+
+  <h3>8.3 目录与产物</h3>
+  <ul>
+    <li><code>workspace/preview/YYYY-MM-DD.html</code> — 每日预览页</li>
+    <li><code>workspace/images/</code> — 配图与封面</li>
+    <li><code>workspace/logs/YYYY-MM-DD.log</code> — 运行日志</li>
+    <li><code>state.db</code> — SQLite 状态库（<b>不入库</b>）</li>
+  </ul>
+</section>
+
+<!-- 09 -->
+<section>
+  <h2 class="sec"><span class="num">09</span>配置说明</h2>
+  <p>真实配置放 <code>config.json</code>，<b>加入 .gitignore 不入库</b>；仓库里只放 <code>config.example.json</code>。</p>
+  <pre>{
+  <span class="st">"wechat"</span>: {
+    <span class="st">"appid"</span>: <span class="st">"wx************"</span>,
+    <span class="st">"appsecret"</span>: <span class="st">"${WX_APPSECRET}"</span>,      <span class="cm">// 支持环境变量注入，不硬编码</span>
+    <span class="st">"publisher"</span>: <span class="st">"auto"</span>                 <span class="cm">// auto | free | mass | draft</span>
+  },
+  <span class="st">"llm"</span>: {
+    <span class="st">"provider"</span>: <span class="st">"claude"</span>,                <span class="cm">// claude | vllm</span>
+    <span class="st">"model"</span>: <span class="st">"claude-sonnet-5"</span>,
+    <span class="st">"api_key"</span>: <span class="st">"${LLM_API_KEY}"</span>
+  },
+  <span class="st">"feishu"</span>: { <span class="st">"webhook"</span>: <span class="st">"https://open.feishu.cn/..."</span>, <span class="st">"receiver"</span>: <span class="st">"ou_xxx"</span> },
+  <span class="st">"schedule"</span>: { <span class="st">"generate_at"</span>: <span class="st">"07:00"</span>, <span class="st">"publish_at"</span>: <span class="st">"08:00"</span> },
+  <span class="st">"review"</span>: { <span class="st">"timeout_action"</span>: <span class="st">"hold"</span> },  <span class="cm">// hold（默认不发）| draft | publish</span>
+  <span class="st">"categories"</span>: [
+    { <span class="st">"key"</span>: <span class="st">"industry"</span>, <span class="st">"name"</span>: <span class="st">"行业观察"</span>, <span class="st">"weight"</span>: 2, <span class="st">"tone"</span>: <span class="st">"专业克制"</span> },
+    { <span class="st">"key"</span>: <span class="st">"tools"</span>,    <span class="st">"name"</span>: <span class="st">"工具推荐"</span>, <span class="st">"weight"</span>: 1, <span class="st">"tone"</span>: <span class="st">"轻松实用"</span> }
+  ],
+  <span class="st">"theme"</span>: <span class="st">"default"</span>
+}</pre>
+  <p><b>敏感信息一律走环境变量</b>：<code>appsecret</code>、<code>api_key</code> 用 <code>${VAR}</code> 占位，由程序在加载时从环境变量替换。绝不把密钥写进仓库。</p>
+</section>
+
+<!-- 10 -->
+<section>
+  <h2 class="sec"><span class="num">10</span>安全与合规</h2>
+  <div class="callout warn">
+    <div class="ct">两条必须守住的线</div>
+    <p><b>1. AI 生成内容标识。</b>据我所知《人工智能生成合成内容标识办法》已于 2025 年 9 月生效，要求 AI 生成的图文内容添加标识。<b>发布前请确认当前具体要求</b>，在文末加注「本文由 AI 辅助生成」之类的说明是成本最低的做法。</p>
+    <p><b>2. 不默认全自动发布。</b>AI 写的内容一旦发布不可逆（可能被转发、被收录）。本方案默认<b>人工确认后才发</b>，超时未确认<b>不自动发</b>。「全自动」是可配置的选项，不是默认行为。</p>
+  </div>
+  <h3>10.1 密钥与凭证</h3>
+  <ul>
+    <li>AppSecret、LLM API Key 只从环境变量读，配置文件里是占位符。</li>
+    <li><code>config.json</code> / <code>state.db</code> / <code>workspace/</code> 全部加入 <code>.gitignore</code>。</li>
+    <li>token 缓存文件权限设为 <code>600</code>。</li>
+  </ul>
+  <h3>10.2 内容安全</h3>
+  <ul>
+    <li>生成结果入库留痕（<code>llm_calls</code>），可追溯每篇稿子由哪个模型、什么提示词产出。</li>
+    <li>可配置<b>敏感词前置检查</b>，命中则拦下不推审核卡（P2）。</li>
+    <li>发布失败不重试超过 N 次，避免刷接口触发风控。</li>
+  </ul>
+</section>
+
+<!-- 11 -->
+<section>
+  <h2 class="sec"><span class="num">11</span>里程碑与排期</h2>
+  <table>
+    <tr><th style="width:110px">里程碑</th><th style="width:90px">周期</th><th>交付</th><th style="width:170px">验收</th></tr>
+    <tr><td><b>M1 打通生成链</b></td><td>2 天</td><td>配置加载、HTTP 封装、选题、生成、排版、本地预览页</td><td><code>run.py preview</code> 出一篇可看的本地 HTML</td></tr>
+    <tr><td><b>M2 接通微信</b></td><td>2 天</td><td>token 中控、素材上传、草稿创建、发布器三实现</td><td>草稿出现在公众号后台</td></tr>
+    <tr><td><b>M3 审核与定时</b></td><td>2 天</td><td>飞书审核卡片、按钮回执、定时调度、状态库</td><td>飞书点批准 → 自动发布</td></tr>
+    <tr><td><b>M4 稳定化</b></td><td>2 天</td><td>错误码处理、降级、重试、日志、发布记录</td><td>连跑 7 天无人工干预</td></tr>
+  </table>
+  <p>总计约 <b>8 个工作日</b>。M1、M2 之间有一个硬前置：<b>需要你把 AppID/AppSecret 给我，并把 IP <code>111.228.14.136</code> 加进白名单</b>，否则 M2 无法验收。</p>
+</section>
+
+<!-- 12 -->
+<section>
+  <h2 class="sec"><span class="num">12</span>风险与开放问题</h2>
+  <h3>12.1 风险</h3>
+  <table>
+    <tr><th style="width:210px">风险</th><th style="width:70px">等级</th><th>应对</th></tr>
+    <tr><td>账号未认证，发布接口不可用</td><td>高</td><td>默认走草稿模式；发布器可插拔，认证后改配置即升级</td></tr>
+    <tr><td>出口 IP 漂移导致 40164</td><td>高</td><td>启动自检 + 告警；必要时收敛到固定 IP 网关</td></tr>
+    <tr><td>AI 生成内容合规标识</td><td>中</td><td>默认加 AI 标识；发布前确认最新要求</td></tr>
+    <tr><td>生成质量不稳定</td><td>中</td><td>人在环审核 + 支持驳回改写；积累提示词模板</td></tr>
+    <tr><td>公众号编辑器样式兼容</td><td>中</td><td>只用安全标签 + 全内联样式；每次变更后在手机上实测</td></tr>
+  </table>
+
+  <h3>12.2 开放问题（需你确认）</h3>
+  <div class="callout tbd">
+    <div class="ct">待定</div>
+    <dl class="kv">
+      <dt>Q1 公众号主体与认证状态</dt>
+      <dd>如果是未认证，发布接口不可用，默认走草稿模式（方案已兼容）。请确认一下，决定 M2 的验收标准。</dd>
+      <dt>Q2 你要「推送」还是「发布」</dt>
+      <dd>推送=粉丝收到通知（受次数限制，服务号每月 4 次）；发布=不推送、可每日发。本方案默认走发布。</dd>
+      <dt>Q3 选题从哪来</dt>
+      <dd>MVP 是配置化栏目 + 人工喂选题。如果你有具体来源（RSS、内部知识库、热榜），告诉我，我加采集器。</dd>
+      <dt>Q4 用哪个模型</dt>
+      <dd>推荐 Claude API（写作质量最好）。你也有自建 vLLM，但 dh 系列是聊天微调的，写推文不合适。要不要为写作用途单独训一个小模型？</dd>
+      <dt>Q5 封面图怎么来</dt>
+      <dd>本机跑不了无头浏览器，不能 HTML 截图。选项：模板图+文字、图库选图、或接图片生成 API。</dd>
+    </dl>
+  </div>
+</section>
+
+<div class="foot">
+  wechat-mp-bot 产品技术方案 · v1.0 · 2026-10-08 · 草案<br>
+  运行环境实测：Python 3.6.8 / 零第三方库 / 出口 IP 111.228.14.136 / 微信 API 可达
+</div>
+
+</div>
+</body>
+</html>
