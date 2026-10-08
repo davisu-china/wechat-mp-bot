@@ -1,0 +1,55 @@
+{
+  "wechat": {
+    "appid": "wx************",
+    "appsecret": "${WX_APPSECRET}",
+    "publisher": "auto",
+    "author": ""
+  },
+
+  "llm": {
+    "provider": "deepseek",
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-v4-flash",
+    "api_key": "${DEEPSEEK_API_KEY}",
+    "timeout": 120,
+    "max_tokens": 8000
+  },
+
+  "image": {
+    "enabled": false,
+    "provider": "dashscope",
+    "base_url": "https://dashscope.aliyuncs.com",
+    "model": "wan2.1-t2i-turbo",
+    "api_key": "${DASHSCOPE_API_KEY}",
+    "cover_size": "1280*544",
+    "timeout": 180
+  },
+
+  "review": {
+    "timeout_action": "hold"
+  },
+
+  "schedule": {
+    "generate_at": "07:00",
+    "publish_at": "08:00"
+  },
+
+  "render": {
+    "ai_theme": true
+  },
+
+  "categories": [
+    {
+      "key": "industry",
+      "name": "行业观察",
+      "tone": "专业克制，有判断，不空谈趋势",
+      "weight": 2
+    },
+    {
+      "key": "tools",
+      "name": "工具推荐",
+      "tone": "轻松实用，讲清楚解决什么问题",
+      "weight": 1
+    }
+  ]
+}

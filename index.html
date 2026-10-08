@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>wechat-mp-bot 产品技术方案</title>
+<title>wechat-mp-bot 产品技术方案 v1.1</title>
 <style>
   :root{
     --paper:#F3F4F7; --surface:#FFFFFF; --surface-2:#EBEDF2;
@@ -110,7 +110,7 @@
 <div class="wrap">
 
 <div class="masthead">
-  <p class="eyebrow">Product &amp; Technical Design · v1.0</p>
+  <p class="eyebrow">Product &amp; Technical Design · v1.1</p>
   <h1>wechat-mp-bot</h1>
   <p class="subtitle">每日自动生成微信公众号推文，审核通过后定时发布。选题 → 生成 → 排版 → 审核 → 发布的全自动流水线，商品级「人在环」设计，权限受限时自动降级为草稿模式。</p>
   <div class="metagrid">
@@ -330,7 +330,8 @@
   <ul>
     <li>输入：选题 + 栏目提示词 + 文风约束 → 输出结构化结果 <code>{title, digest, body_markdown, cover_prompt}</code>。</li>
     <li><b>要求模型输出 JSON</b>而非自由文本，便于程序解析；解析失败时降级为「整段当正文 + 首行当标题」。</li>
-    <li>模型来源可切换：<b>Claude API</b>（推荐，写作质量最好）或<b>自建 vLLM 服务</b>（成本低、数据不出内网）。注意：自建的 dh 系列是聊天场景微调的，写推文效果不佳，需另训或不用。</li>
+    <li><b>已定模型：DeepSeek</b>。默认 <code>deepseek-v4-flash</code>（$0.14 / $0.28 每百万 token），需要深度推理的栏目可切 <code>deepseek-v4-pro</code>（$0.435 / $0.87，约贵 3 倍）。旧的 <code>deepseek-chat</code> / <code>deepseek-reasoner</code> 已于 2026-07-24 停用。</li>
+    <li><b>一次调用同时产出「内容」和「样式主题」</b>，见 5.3.1。既省一次往返，也让模型能按文章气质配色。</li>
     <li>生成结果落库，保留原始响应以便排查。</li>
   </ul>
 
@@ -353,9 +354,32 @@
   &lt;/blockquote&gt;
 &lt;/section&gt;</pre>
 
+  <h3>5.3.1 样式主题由 AI 现场生成 <span class="badge b-mvp">MVP</span></h3>
+  <div class="callout">
+    <div class="ct">「文章 UI 也由 AI 生成」的正确解法</div>
+    <p>需求是每篇文章的视觉风格不一样、由 AI 生成。但如果直接让模型吐 HTML，风险很大——公众号编辑器不认外部 CSS 和 <code>&lt;style&gt;</code>，模型一旦生成越界的标签或结构，整篇排版就废了，而且不可预测。</p>
+    <p>本方案的解法：<b>让 AI 生成「样式参数」，不让它生成「HTML 结构」</b>。模型每次输出一组样式 tokens（主色 / 点缀色 / 正文色 / 引用块配色 / 字号 / 行高 / 标题样式 / 分割线样式），渲染器把这组参数套进<b>固定的、经过验证的 HTML 骨架</b>。</p>
+    <p>结果：<b>视觉上篇篇不同（AI 生成），结构上永远安全（渲染器控制）</b>。</p>
+  </div>
+  <p>模型输出的样式参数：</p>
+  <pre>{
+  <span class="st">"primary"</span>: <span class="st">"#2C4A8C"</span>,        <span class="cm">// 主色：标题竖条、加粗、强调</span>
+  <span class="st">"accent"</span>:  <span class="st">"#C8862A"</span>,        <span class="cm">// 点缀色</span>
+  <span class="st">"text"</span>:    <span class="st">"#333333"</span>,        <span class="cm">// 正文色（必须保证白底可读）</span>
+  <span class="st">"muted"</span>:   <span class="st">"#8A8F99"</span>,        <span class="cm">// 次要文字</span>
+  <span class="st">"quote_bg"</span>:<span class="st">"#F5F6F8"</span>,        <span class="cm">// 引用块背景</span>
+  <span class="st">"font_size"</span>: 16,              <span class="cm">// 字号（代码里夹到 14-20）</span>
+  <span class="st">"line_height"</span>: 1.8,           <span class="cm">// 行高（夹到 1.4-2.4）</span>
+  <span class="st">"heading_style"</span>: <span class="st">"bar"</span>,       <span class="cm">// bar | underline | plain | numbered</span>
+  <span class="st">"divider"</span>: <span class="st">"line"</span>             <span class="cm">// line | dots | wave | none</span>
+}</pre>
+  <p>模型给的值<b>不直接信任</b>：颜色必须是合法十六进制（正则校验），字号、行高、间距一律 clamp 到安全区间，未知的枚举值回落到默认。模型可以决定「长什么样」，但不能决定「能不能渲染」。</p>
+
   <h3>5.4 素材模块</h3>
   <ul>
-    <li>封面图：MVP 用<b>模板图</b>（本地生成一张带标题文字的图）或从图库选，通过 <code>material/add_material</code> 上传为<b>永久素材</b>，拿到 <code>media_id</code>。</li>
+    <li>封面图：由文生图模型现场生成。文章生成时同时产出一句 <code>cover_prompt</code>（画面描述，不含文字），交给图像模型出图，再通过 <code>material/add_material</code> 上传为<b>永久素材</b>拿到 <code>media_id</code>。</li>
+    <li><b>已定图像服务：阿里云百炼「通义万相」</b>（DashScope）。选它的理由：本项目已经在阿里云上，凭证与账单复用，不用再接一家新供应商。模型可用 <code>wan2.1-t2i-turbo</code>（约 0.14 元/张，有免费额度）或 <code>wan2.6-t2i</code>（约 0.2 元/张，质量更好）。</li>
+    <li><b>尺寸注意</b>：微信封面推荐 900×383（约 2.35:1），而万相不支持任意比例。本机没有 Pillow（Python 3.6 且未装第三方库），<b>无法在本地裁剪</b>，所以取接近的宽幅（如 <code>1280*544</code>）请求，由微信侧裁剪。若必须精确 900×383，需要额外引入图像库，这是 12.2 的一个待定项。</li>
     <li>正文图：通过 <code>media/uploadimg</code> 上传，返回 <code>mmbiz.qpic.cn</code> 地址，<b>用它替换正文里的原始图片地址</b>。</li>
     <li>本机禁用无头浏览器（glibc 2.17，Chromium 跑不起来），所以<b>不做 HTML 截图生成封面</b>；封面走「模板图 + 文字叠加」或外部图片生成 API。</li>
     <li>上传结果与 <code>media_id</code> 缓存进状态库，避免重复上传（素材有数量上限）。</li>
@@ -375,8 +399,15 @@
     <tr><th style="width:170px">发布器</th><th style="width:150px">调用接口</th><th>行为</th><th style="width:110px">前提</th></tr>
     <tr><td><code>FreePublisher</code></td><td><code>freepublish/submit</code></td><td>提交发布，生成永久链接，不推送粉丝</td><td>已认证账号</td></tr>
     <tr><td><code>MassPublisher</code></td><td><code>mass/sendall</code></td><td>群发，粉丝收到推送（受次数限制）</td><td>已认证 + 有额度</td></tr>
-    <tr><td><code>DraftPublisher</code></td><td><code>draft/add</code></td><td><b>只存草稿</b>，通知运营者到后台手动发表</td><td><b>无门槛（兜底）</b></td></tr>
+    <tr><td><code>DraftPublisher</code></td><td><code>draft/add</code></td><td>自动存草稿，通知运营者到后台点发表</td><td>未认证<b>可能</b>可用（有账号差异，需实测）</td></tr>
+    <tr><td><code>ManualPublisher</code></td><td>—</td><td>产出「可直接粘贴」页：打开 → Ctrl+A → Ctrl+C → 粘进公众号编辑器</td><td><b>无任何门槛（最终兜底）</b></td></tr>
   </table>
+
+  <div class="callout warn">
+    <div class="ct">本号当前状态：未认证 —— 大概率只能走到第 3 级</div>
+    <p>微信 2025-07 起回收了未认证账号的 <code>freepublish/*</code> 权限（返回 <code>48001</code>）；<code>draft/add</code> <b>是否可用存在账号差异</b>——有实测能建草稿的，也有同样报 48001 的。以「设置与开发 → 接口权限」后台实际显示为准，或直接用 access_token 试调一次。</p>
+    <p>所以 <code>ManualPublisher</code> 不是妥协方案，而是<b>保底方案</b>：即使前三级全部不可用，整条生成链路依然产生价值。而它能成立的前提，正是渲染层坚持输出<b>全内联样式</b>——粘过去排版才不丢。</p>
+  </div>
   <pre><span class="cm"># 发布器接口（示意）</span>
 <span class="kw">class</span> <span class="fn">Publisher</span>(object):
     <span class="kw">def</span> <span class="fn">publish</span>(self, article):
@@ -535,8 +566,8 @@ python3.6 run.py daemon</pre>
   <h2 class="sec"><span class="num">11</span>里程碑与排期</h2>
   <table>
     <tr><th style="width:110px">里程碑</th><th style="width:90px">周期</th><th>交付</th><th style="width:170px">验收</th></tr>
-    <tr><td><b>M1 打通生成链</b></td><td>2 天</td><td>配置加载、HTTP 封装、选题、生成、排版、本地预览页</td><td><code>run.py preview</code> 出一篇可看的本地 HTML</td></tr>
-    <tr><td><b>M2 接通微信</b></td><td>2 天</td><td>token 中控、素材上传、草稿创建、发布器三实现</td><td>草稿出现在公众号后台</td></tr>
+    <tr><td><b>M1 打通生成链</b> <span class="badge b-p1">已完成</span></td><td>2 天</td><td>配置加载、HTTP 封装、选题、生成、AI 样式主题、排版、预览页与粘贴页</td><td><code>run.py preview</code> 出一篇可看的本地 HTML</td></tr>
+    <tr><td><b>M2 接通微信</b></td><td>2 天</td><td>token 中控、素材上传、图像生成接入、草稿创建、发布器四级实现</td><td>稿件出现在公众号后台；若接口无权限，粘贴页可用</td></tr>
     <tr><td><b>M3 审核与定时</b></td><td>2 天</td><td>飞书审核卡片、按钮回执、定时调度、状态库</td><td>飞书点批准 → 自动发布</td></tr>
     <tr><td><b>M4 稳定化</b></td><td>2 天</td><td>错误码处理、降级、重试、日志、发布记录</td><td>连跑 7 天无人工干预</td></tr>
   </table>
@@ -560,22 +591,24 @@ python3.6 run.py daemon</pre>
   <div class="callout tbd">
     <div class="ct">待定</div>
     <dl class="kv">
-      <dt>Q1 公众号主体与认证状态</dt>
-      <dd>如果是未认证，发布接口不可用，默认走草稿模式（方案已兼容）。请确认一下，决定 M2 的验收标准。</dd>
-      <dt>Q2 你要「推送」还是「发布」</dt>
-      <dd>推送=粉丝收到通知（受次数限制，服务号每月 4 次）；发布=不推送、可每日发。本方案默认走发布。</dd>
-      <dt>Q3 选题从哪来</dt>
-      <dd>MVP 是配置化栏目 + 人工喂选题。如果你有具体来源（RSS、内部知识库、热榜），告诉我，我加采集器。</dd>
-      <dt>Q4 用哪个模型</dt>
-      <dd>推荐 Claude API（写作质量最好）。你也有自建 vLLM，但 dh 系列是聊天微调的，写推文不合适。要不要为写作用途单独训一个小模型？</dd>
-      <dt>Q5 封面图怎么来</dt>
-      <dd>本机跑不了无头浏览器，不能 HTML 截图。选项：模板图+文字、图库选图、或接图片生成 API。</dd>
+      <dt>Q1 公众号主体与认证状态 —— <span style="color:#0F6157;">已答</span></dt>
+      <dd>未认证。因此 <code>freepublish</code> 不可用，<b>极可能只能走到第 3 级（ManualPublisher 人工粘贴）</b>，草稿接口能否用需实测。M2 的验收标准相应改为「产出可直接粘贴的页面」而非「自动发布」。<b>认证后本方案无需改代码即可升级到自动发布</b>（发布器可插拔）。</dd>
+      <dt>Q2 推送还是发布 —— <span style="color:#0F6157;">已答</span></dt>
+      <dd>选发布，不推送。方案默认走发布。</dd>
+      <dt>Q3 选题来源 —— <span style="color:#8A6412;">待定</span></dt>
+      <dd>MVP 是配置化栏目 + 人工喂选题池。若有具体来源（RSS / 内部知识库 / 热榜），可加采集器。</dd>
+      <dt>Q4 用什么模型 —— <span style="color:#0F6157;">已答</span></dt>
+      <dd>DeepSeek。<code>deepseek-v4-flash</code> 为默认，<code>deepseek-v4-pro</code> 备选。</dd>
+      <dt>Q5 封面图 —— <span style="color:#0F6157;">已答</span></dt>
+      <dd>AI 生成，用阿里云百炼「通义万相」。<b>遗留问题</b>：本机无图像处理库，无法把出图裁成微信推荐的 900×383，目前靠请求接近比例 + 微信侧裁剪。若要求精确尺寸，需引入图像库（会让「零依赖」这条破例，需你拍板）。</dd>
+      <dt>Q6 是否需要人工审核环节 —— <span style="color:#8A6412;">待定</span></dt>
+      <dd>方案默认<b>保留人工确认</b>（超时不发）。是否接受「无人值守自动发」需明确，涉及 AI 生成内容的合规标识与不可逆风险。</dd>
     </dl>
   </div>
 </section>
 
 <div class="foot">
-  wechat-mp-bot 产品技术方案 · v1.0 · 2026-10-08 · 草案<br>
+  wechat-mp-bot 产品技术方案 · v1.1 · 2026-10-08 · 草案<br>
   运行环境实测：Python 3.6.8 / 零第三方库 / 出口 IP 111.228.14.136 / 微信 API 可达
 </div>
 
