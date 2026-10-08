@@ -185,6 +185,16 @@ def cmd_publish(args):
     return 1
 
 
+def cmd_admin(args):
+    from wmpb import admin as admin_mod
+    try:
+        admin_mod.serve(args.config, host=args.host, port=args.port)
+    except SystemExit as e:
+        _log(str(e))
+        return 1
+    return 0
+
+
 def main():
     p = argparse.ArgumentParser(prog="run.py", description="每日生成微信公众号推文")
     p.add_argument("--config", default=None, help="配置文件路径")
@@ -214,6 +224,11 @@ def main():
     sb = sub.add_parser("publish", help="重新提交发布")
     sb.add_argument("--id", type=int, required=True)
     sb.set_defaults(func=cmd_publish)
+
+    sa = sub.add_parser("admin", help="启动后台 Web 服务")
+    sa.add_argument("--host", default=None, help="监听地址，默认取配置（127.0.0.1）")
+    sa.add_argument("--port", type=int, default=None, help="监听端口，默认取配置（8099）")
+    sa.set_defaults(func=cmd_admin)
 
     args = p.parse_args()
     if not getattr(args, "cmd", None):

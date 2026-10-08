@@ -65,6 +65,14 @@ DEFAULTS = {
         # 每个栏目最多挑多少条选题入池
         "per_category": 6,
     },
+    "admin": {
+        # 默认只听本机，由外层 nginx 反代。改成 0.0.0.0 前请确认已有 HTTPS 与访问控制。
+        "host": "127.0.0.1",
+        "port": 8099,
+        # 必须设置，否则拒绝启动。也可用环境变量 WMPB_ADMIN_PASSWORD。
+        "password": "${WMPB_ADMIN_PASSWORD}",
+        "user": "admin",
+    },
     "categories": [],
     "paths": {
         "workspace": "workspace",
