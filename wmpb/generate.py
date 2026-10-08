@@ -92,8 +92,15 @@ class LLMClient(object):
         self.api_key = cfg.get("llm.api_key")
         self.timeout = int(cfg.get("llm.timeout", 120))
 
-    def chat(self, messages, temperature=0.8, max_tokens=None):
-        """OpenAI 兼容的 chat/completions。返回 (content, usage)。"""
+    def chat(self, messages, temperature=0.8, max_tokens=None, thinking=None):
+        """OpenAI 兼容的 chat/completions。返回 (content, usage)。
+
+        关于 thinking：DeepSeek V4 默认开启思考模式，会先产出一大段
+        reasoning_content（实测一篇推文能烧掉 3400+ 推理 token），
+        这些 token 按输出价计费，且会挤占 max_tokens 导致正文被截断甚至为空。
+        写推文不需要长链推理，默认关闭。实测有效的写法只有
+        {"thinking": {"type": "disabled"}}，enable_thinking / chat_template_kwargs 均无效。
+        """
         url = http.build_url(self.base_url, "/chat/completions")
         payload = {
             "model": self.model,
@@ -103,6 +110,10 @@ class LLMClient(object):
         }
         payload["max_tokens"] = int(max_tokens or self.cfg.get("llm.max_tokens", 8000))
 
+        use_thinking = self.cfg.get("llm.thinking", False) if thinking is None else thinking
+        if not use_thinking:
+            payload["thinking"] = {"type": "disabled"}
+
         data = http.post_json(
             url, payload,
             headers={"Authorization": "Bearer %s" % self.api_key},
@@ -110,7 +121,7 @@ class LLMClient(object):
         )
         if "choices" not in data:
             raise http.HttpError("模型返回异常: %s" % json.dumps(data, ensure_ascii=False)[:300])
-        content = data["choices"][0]["message"]["content"]
+        content = data["choices"][0]["message"].get("content") or ""
         return content, data.get("usage", {})
 
     def estimate_cost(self, usage):
@@ -192,10 +203,22 @@ def generate_article(cfg, store, category, topic, recent_titles=None):
 
     user_prompt = "\n".join(lines)
 
-    content, usage = client.chat([
+    messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_prompt},
-    ])
+    ]
+    content, usage = client.chat(messages)
+
+    # 兜底：模型偶尔返回空正文（多为推理 token 挤占了 max_tokens）。
+    # 关掉思考 + 放大预算重试一次，仍为空才报错。
+    if not (content or "").strip():
+        rt = (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0)
+        content, usage = client.chat(messages, thinking=False, max_tokens=16000)
+        if not (content or "").strip():
+            raise ValueError(
+                "模型返回空正文（推理 token=%s，输出上限=%s）。"
+                "通常是思考模式挤占了 max_tokens，请提高 llm.max_tokens 或确认 thinking 已关闭。"
+                % (rt, cfg.get("llm.max_tokens")))
 
     data = _extract_json(content)
     article = {

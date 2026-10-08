@@ -27,6 +27,9 @@ DEFAULTS = {
         "api_key": "",
         "timeout": 120,
         "max_tokens": 8000,
+        # DeepSeek V4 默认开思考模式，写推文不需要；开着会多烧约 65% 输出 token
+        # 且会挤占 max_tokens 导致正文为空。默认关闭。
+        "thinking": False,
     },
     "image": {
         "enabled": False,
