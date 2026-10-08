@@ -242,7 +242,7 @@
   <h3>3.2 功能范围</h3>
   <table>
     <tr><th style="width:60px">编号</th><th style="width:170px">模块</th><th>能力</th><th style="width:80px">优先级</th></tr>
-    <tr><td>F-1</td><td>选题</td><td>栏目化选题配置、选题池、去重（近期不重复）</td><td><span class="badge b-mvp">MVP</span></td></tr>
+    <tr><td>F-1</td><td>选题采集 <span class="badge b-p1">已完成</span></td><td>9 个内容源并发抓取、去重、模型筛选归类改写、入选题池</td><td><span class="badge b-mvp">MVP</span></td></tr>
     <tr><td>F-2</td><td>内容生成</td><td>调用 LLM 出稿（标题/摘要/正文），支持自定义提示词模板与文风</td><td><span class="badge b-mvp">MVP</span></td></tr>
     <tr><td>F-3</td><td>排版渲染</td><td>Markdown → 公众号内联样式 HTML，多种主题模板</td><td><span class="badge b-mvp">MVP</span></td></tr>
     <tr><td>F-4</td><td>配图</td><td>封面图与正文图，上传至微信永久素材并替换为可用地址</td><td><span class="badge b-mvp">MVP</span></td></tr>
@@ -317,14 +317,48 @@
 <section>
   <h2 class="sec"><span class="num">05</span>核心模块设计</h2>
 
-  <h3>5.1 选题模块</h3>
-  <p>选题是内容质量的上限。MVP 阶段采用<b>配置化栏目 + 选题池</b>，不做大规模抓取：</p>
+  <h3>5.1 选题采集模块</h3>
+  <p>选题是内容质量的上限，所以这一步不是「随便抓点东西」，而是<b>抓回来 + 模型筛选改写</b>两段式。</p>
+
+  <h4>内容源（2026-10-08 逐一实测可达）</h4>
+  <table>
+    <tr><th style="width:130px">源</th><th style="width:90px">类型</th><th style="width:130px">倾向归类</th><th>实测结果</th></tr>
+    <tr><td>量子位</td><td>RSS</td><td>AI</td><td>✅ 10 条</td></tr>
+    <tr><td>雷锋网</td><td>RSS</td><td>AI</td><td>✅ 15 条</td></tr>
+    <tr><td>IT之家</td><td>RSS</td><td>科技</td><td>✅ 15 条</td></tr>
+    <tr><td>少数派</td><td>RSS</td><td>科技</td><td>✅ 10 条</td></tr>
+    <tr><td>钛媒体</td><td>RSS</td><td>互联网</td><td>✅ 15 条</td></tr>
+    <tr><td>InfoQ 中文</td><td>RSS</td><td>技术</td><td>✅ 15 条</td></tr>
+    <tr><td>OSChina</td><td>RSS</td><td>技术</td><td>✅ 15 条</td></tr>
+    <tr><td>HackerNews</td><td>JSON API</td><td>科技（英文）</td><td>✅ 15 条</td></tr>
+    <tr><td>掘金热榜</td><td>JSON API</td><td>职场 / 技术</td><td>✅ 15 条</td></tr>
+  </table>
+  <p><b>合计 9 个源并发抓取耗时 1.7 秒，125 条候选，0 失败。</b>RSS 解析用标准库 <code>xml.etree.ElementTree</code>，同时兼容 RSS 2.0 与 Atom。</p>
+
+  <div class="callout warn">
+    <div class="ct">以下源从本机不可达，已排除（不是不想用，是网络到不了）</div>
+    <p>虎嗅、V2EX、知乎热榜（401）、微博热搜（403）、以及<b>所有公共 RSSHub 实例</b>（503）。飞连代理也救不回来。若后续需要这些源，得自建 RSSHub 或换有固定出口的环境。</p>
+  </div>
+
+  <h4>两段式筛选（本模块的关键设计）</h4>
+  <p><b>为什么不让程序按关键词归类？</b>因为一条新闻该归到「AI」还是「互联网职场」，取决于它的<b>切入角度</b>，而不是标题里出现了什么词。程序只能做无脑匹配，模型才能判断「这条能不能写、从哪个角度写、读者关不关心」。</p>
+  <div class="flow">
+    <div class="fn plain">并发抓取 9 源<small>1.7s</small></div><span class="fa">→</span>
+    <div class="fn plain">归一化 + 去重<small>按标题指纹</small></div><span class="fa">→</span>
+    <div class="fn plain">落候选表<small>唯一索引防重</small></div><span class="fa">→</span>
+    <div class="fn gw">模型筛选归类<small>改写角度 + 打分</small></div><span class="fa">→</span>
+    <div class="fn ok">入选题池</div>
+  </div>
   <ul>
-    <li>配置里定义若干<b>栏目</b>（如「行业观察」「工具推荐」「每周复盘」），每个栏目带提示词倾向与配图风格。</li>
-    <li>每日按配置的轮换策略选栏目（轮询 / 权重），再从栏目下的<b>选题池</b>取一条。</li>
-    <li>选题池支持人工补充（运营者往 JSON 里加），也支持程序按提示词让模型先生成候选再选。</li>
-    <li><b>去重</b>：近 N 天已用过的选题标记为已用，避免重复。</li>
+    <li><b>抓取容错</b>：单个源挂掉不影响其它源，失败的源在日志里列出，不中断流程。</li>
+    <li><b>去重</b>：按「标题 + URL」的指纹建唯一索引，重复抓取不产生重复候选。</li>
+    <li><b>模型输出的是「选题」不是「标题」</b>：模型要把新闻标题改写成可写的角度，并给出切入点和 0-10 的推荐分。</li>
+    <li><b>降级保底</b>：模型不可用时，按各源自身的倾向归类直接收标题入池——质量差一些，但流程不断。（实测这条路径可用，出 16 条选题，四栏各 4 条。）</li>
+    <li>已入选的候选标记为已用，避免下次重复喂给模型；候选表保留 14 天自动清理。</li>
   </ul>
+
+  <h4>栏目配置</h4>
+  <p>四个栏目按你的方向设定：<code>ai</code>（AI）、<code>tech</code>（科技）、<code>internet</code>（互联网）、<code>workplace</code>（互联网职场）。每个栏目带<b>权重</b>（决定轮换频率）与<b>语气倾向</b>（写进生成提示词）。</p>
 
   <h3>5.2 生成模块</h3>
   <ul>
@@ -567,6 +601,7 @@ python3.6 run.py daemon</pre>
   <table>
     <tr><th style="width:110px">里程碑</th><th style="width:90px">周期</th><th>交付</th><th style="width:170px">验收</th></tr>
     <tr><td><b>M1 打通生成链</b> <span class="badge b-p1">已完成</span></td><td>2 天</td><td>配置加载、HTTP 封装、选题、生成、AI 样式主题、排版、预览页与粘贴页</td><td><code>run.py preview</code> 出一篇可看的本地 HTML</td></tr>
+    <tr><td><b>M1.5 选题采集</b> <span class="badge b-p1">已完成</span></td><td>1 天</td><td>9 个内容源适配器、并发抓取、去重、模型筛选归类、降级保底</td><td><code>run.py collect</code> 后选题池非空</td></tr>
     <tr><td><b>M2 接通微信</b></td><td>2 天</td><td>token 中控、素材上传、图像生成接入、草稿创建、发布器四级实现</td><td>稿件出现在公众号后台；若接口无权限，粘贴页可用</td></tr>
     <tr><td><b>M3 审核与定时</b></td><td>2 天</td><td>飞书审核卡片、按钮回执、定时调度、状态库</td><td>飞书点批准 → 自动发布</td></tr>
     <tr><td><b>M4 稳定化</b></td><td>2 天</td><td>错误码处理、降级、重试、日志、发布记录</td><td>连跑 7 天无人工干预</td></tr>
@@ -595,8 +630,8 @@ python3.6 run.py daemon</pre>
       <dd>未认证。因此 <code>freepublish</code> 不可用，<b>极可能只能走到第 3 级（ManualPublisher 人工粘贴）</b>，草稿接口能否用需实测。M2 的验收标准相应改为「产出可直接粘贴的页面」而非「自动发布」。<b>认证后本方案无需改代码即可升级到自动发布</b>（发布器可插拔）。</dd>
       <dt>Q2 推送还是发布 —— <span style="color:#0F6157;">已答</span></dt>
       <dd>选发布，不推送。方案默认走发布。</dd>
-      <dt>Q3 选题来源 —— <span style="color:#8A6412;">待定</span></dt>
-      <dd>MVP 是配置化栏目 + 人工喂选题池。若有具体来源（RSS / 内部知识库 / 热榜），可加采集器。</dd>
+      <dt>Q3 选题来源 —— <span style="color:#0F6157;">已答</span></dt>
+      <dd>已实现自动采集（见 5.1）：9 个源实测可达，两段式「抓取 + 模型筛选归类」。方向为 AI / 科技 / 互联网 / 互联网职场四个栏目。</dd>
       <dt>Q4 用什么模型 —— <span style="color:#0F6157;">已答</span></dt>
       <dd>DeepSeek。<code>deepseek-v4-flash</code> 为默认，<code>deepseek-v4-pro</code> 备选。</dd>
       <dt>Q5 封面图 —— <span style="color:#0F6157;">已答</span></dt>

@@ -18,6 +18,7 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 if BASE not in sys.path:
     sys.path.insert(0, BASE)
 
+from wmpb import collect as collect_mod
 from wmpb import config as config_mod
 from wmpb import generate, render, store as store_mod, topic as topic_mod
 
@@ -117,8 +118,65 @@ def cmd_seed(args):
         st.close()
 
 
+def cmd_collect(args):
+    cfg = config_mod.load(args.config)
+    st = store_mod.Store(cfg.abs_path("paths.state_db"))
+    try:
+        keys = args.sources.split(",") if args.sources else None
+        _log("开始采集内容源…")
+        stats = collect_mod.collect(
+            cfg, st,
+            source_keys=keys,
+            limit=int(cfg.get("collect.limit", 40)),
+            per_category=int(cfg.get("collect.per_category", 6)),
+        )
+        for k, v in stats["errors"]:
+            _log("  源 %s 失败：%s" % (k, v))
+        _log("抓取 %d 条，新增候选 %d 条，喂给模型 %d 条"
+             % (stats["fetched"], stats["new_candidates"], stats["pool_size"]))
+        _log("模型挑出 %d 条，新入选题池 %d 条（%s）"
+             % (stats["picked"], stats["written"], stats["status"]))
+        return 0
+    finally:
+        st.close()
+
+
+def cmd_topics(args):
+    cfg = config_mod.load(args.config)
+    st = store_mod.Store(cfg.abs_path("paths.state_db"))
+    try:
+        total = 0
+        for c in cfg.get("categories"):
+            rows = st.conn.execute(
+                "SELECT title FROM topics WHERE category=? AND status='pending' "
+                "ORDER BY id", (c.get("key"),)).fetchall()
+            total += len(rows)
+            _log("%s（%s）待用 %d 条" % (c.get("name"), c.get("key"), len(rows)))
+            for r in rows[:8]:
+                _log("    · %s" % r["title"])
+        _log("合计待用选题 %d 条" % total)
+        return 0
+    finally:
+        st.close()
+
+
 def cmd_run(args):
-    _log("全流程模式：微信发布部分待 M2 接入")
+    cfg = config_mod.load(args.config)
+    st = store_mod.Store(cfg.abs_path("paths.state_db"))
+    try:
+        keys = args.sources.split(",") if getattr(args, "sources", None) else None
+        _log("第一步：采集选题")
+        stats = collect_mod.collect(
+            cfg, st, source_keys=keys,
+            limit=int(cfg.get("collect.limit", 40)),
+            per_category=int(cfg.get("collect.per_category", 6)))
+        for k, v in stats["errors"]:
+            _log("  源 %s 失败：%s" % (k, v))
+        _log("采集完成：抓取 %d，新增候选 %d，新入池 %d"
+             % (stats["fetched"], stats["new_candidates"], stats["written"]))
+    finally:
+        st.close()
+    _log("第二步：生成与排版")
     return cmd_preview(args)
 
 
@@ -137,11 +195,19 @@ def main():
     sp.add_argument("--no-save", action="store_true", help="不入库")
     sp.set_defaults(func=cmd_preview)
 
-    ss = sub.add_parser("seed", help="把选题池灌进数据库")
+    ss = sub.add_parser("seed", help="把选题池文件灌进数据库")
     ss.set_defaults(func=cmd_seed)
 
-    sr = sub.add_parser("run", help="跑全流程")
+    sc = sub.add_parser("collect", help="从内容源采集并生成选题")
+    sc.add_argument("--sources", default=None, help="只跑指定源，逗号分隔，如 qbitai,hn")
+    sc.set_defaults(func=cmd_collect)
+
+    stp = sub.add_parser("topics", help="查看选题池现状")
+    stp.set_defaults(func=cmd_topics)
+
+    sr = sub.add_parser("run", help="跑全流程（采集 -> 生成 -> 排版）")
     sr.add_argument("--category", default=None)
+    sr.add_argument("--sources", default=None)
     sr.add_argument("--no-save", action="store_true")
     sr.set_defaults(func=cmd_run)
 

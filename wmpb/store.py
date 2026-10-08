@@ -88,6 +88,20 @@ CREATE TABLE IF NOT EXISTS kv (
     v           TEXT,
     updated_at  TEXT
 );
+
+CREATE TABLE IF NOT EXISTS candidates (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    fingerprint  TEXT NOT NULL,
+    title        TEXT NOT NULL,
+    url          TEXT,
+    source       TEXT,
+    summary      TEXT,
+    published_at TEXT,
+    picked       INTEGER NOT NULL DEFAULT 0,
+    created_at   TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cand_fp ON candidates(fingerprint);
+CREATE INDEX IF NOT EXISTS idx_cand_picked ON candidates(picked, created_at);
 """
 
 
@@ -189,6 +203,52 @@ class Store(object):
             "SELECT * FROM articles WHERE day=? ORDER BY id DESC LIMIT 1", (day,)
         ).fetchone()
         return dict(row) if row else None
+
+    # ---------- candidates ----------
+    def save_candidates(self, items):
+        """写入候选。返回新增条数（重复的靠唯一索引跳过）。"""
+        added = 0
+        for it in items:
+            import hashlib
+            fp = hashlib.sha1(
+                (it.get("title", "") + "|" + it.get("url", "")).encode("utf-8")
+            ).hexdigest()[:20]
+            try:
+                self.conn.execute(
+                    "INSERT INTO candidates(fingerprint, title, url, source, summary, "
+                    "published_at, created_at) VALUES(?,?,?,?,?,?,?)",
+                    (fp, it.get("title", ""), it.get("url", ""), it.get("source", ""),
+                     it.get("summary", ""), it.get("published_at", ""), _now()),
+                )
+                added += 1
+            except sqlite3.IntegrityError:
+                pass
+        self.conn.commit()
+        return added
+
+    def unpicked_candidates(self, limit=80):
+        rows = self.conn.execute(
+            "SELECT * FROM candidates WHERE picked=0 ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def mark_candidates_picked(self, ids):
+        if not ids:
+            return
+        marks = ",".join("?" * len(ids))
+        self.conn.execute(
+            "UPDATE candidates SET picked=1 WHERE id IN (%s)" % marks, list(ids)
+        )
+        self.conn.commit()
+
+    def purge_old_candidates(self, keep_days=14):
+        """清掉过期的未选候选，避免表无限膨胀。"""
+        cutoff = time.strftime("%Y-%m-%dT%H:%M:%S",
+                               time.gmtime(time.time() - keep_days * 86400))
+        cur = self.conn.execute(
+            "DELETE FROM candidates WHERE picked=0 AND created_at < ?", (cutoff,))
+        self.conn.commit()
+        return cur.rowcount
 
     # ---------- logs ----------
     def log_llm(self, article_id, purpose, model, prompt_hash, response, cost=0.0):

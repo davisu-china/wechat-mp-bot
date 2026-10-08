@@ -16,7 +16,7 @@
   },
 
   "image": {
-    "enabled": false,
+    "enabled": true,
     "provider": "dashscope",
     "base_url": "https://dashscope.aliyuncs.com",
     "model": "wan2.1-t2i-turbo",
@@ -25,11 +25,19 @@
     "timeout": 180
   },
 
+  "collect": {
+    "sources": [],
+    "batch": 80,
+    "limit": 40,
+    "per_category": 6
+  },
+
   "review": {
     "timeout_action": "hold"
   },
 
   "schedule": {
+    "collect_at": "06:30",
     "generate_at": "07:00",
     "publish_at": "08:00"
   },
@@ -40,16 +48,28 @@
 
   "categories": [
     {
-      "key": "industry",
-      "name": "行业观察",
-      "tone": "专业克制，有判断，不空谈趋势",
+      "key": "ai",
+      "name": "AI",
+      "tone": "关注技术本身与产业落地，讲清楚是什么、为什么重要，不吹不黑",
+      "weight": 3
+    },
+    {
+      "key": "tech",
+      "name": "科技",
+      "tone": "科技产品与技术趋势，重信息量与判断，拒绝通稿腔",
       "weight": 2
     },
     {
-      "key": "tools",
-      "name": "工具推荐",
-      "tone": "轻松实用，讲清楚解决什么问题",
-      "weight": 1
+      "key": "internet",
+      "name": "互联网",
+      "tone": "行业格局、商业模式、公司动向，有观点但克制",
+      "weight": 2
+    },
+    {
+      "key": "workplace",
+      "name": "互联网职场",
+      "tone": "面向技术从业者的职场观察与经验，真诚、不油腻、不说教",
+      "weight": 2
     }
   ]
 }

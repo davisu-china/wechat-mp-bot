@@ -52,6 +52,16 @@ DEFAULTS = {
         "ai_theme": True,
         "fallback_theme": "default",
     },
+    "collect": {
+        # 留空表示启用 sources.py 里全部已实测可达的源
+        "sources": [],
+        # 每次喂给模型多少条候选
+        "batch": 80,
+        # 抓取每个源多少条
+        "limit": 40,
+        # 每个栏目最多挑多少条选题入池
+        "per_category": 6,
+    },
     "categories": [],
     "paths": {
         "workspace": "workspace",
@@ -142,9 +152,15 @@ def load(path=None):
 def _validate(cfg):
     if not cfg.get("categories"):
         raise ValueError("配置里至少需要一个 categories 栏目")
+
     provider = cfg.get("llm.provider")
     if provider == "deepseek" and not cfg.get("llm.api_key"):
         raise ValueError("缺少 LLM api_key（可用 ${DEEPSEEK_API_KEY} 从环境变量注入）")
-    if cfg.get("image.enabled"):
-        if not cfg.get("image.api_key"):
-            raise ValueError("启用了图片生成但缺少 image.api_key")
+
+    # 图片 key 缺失不算致命：采集与写稿不依赖它，关掉图片生成继续跑即可。
+    if cfg.get("image.enabled") and not cfg.get("image.api_key"):
+        import sys
+        sys.stderr.write(
+            "[warn] 未配置 image.api_key，已自动关闭封面图生成。"
+            "如需封面图，请设置 ${DASHSCOPE_API_KEY}。\n")
+        cfg._data["image"]["enabled"] = False
